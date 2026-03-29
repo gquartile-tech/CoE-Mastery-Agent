@@ -253,7 +253,7 @@ def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
 
     source_months = parse_months_from_text(ctx.am)
     mention_months = set()
-    for text in [ctx.ay, ctx.bn, ctx.t7]:
+    for text in [ctx.ay, ctx.bn]:
         mention_months |= parse_months_from_text(text)
     if source_months and mention_months:
         r['C004'] = ControlResult('OK', '', WHY['C004'], SOURCES['C004'])
@@ -264,7 +264,7 @@ def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
     else:
         r['C004'] = ControlResult('OK', '', WHY['C004'], SOURCES['C004'])
 
-    al = ctx.al.strip().lower(); support = ' '.join([ctx.ay, ctx.am, ctx.bn, ctx.t7]).lower()
+    al = ctx.al.strip().lower(); support = ' '.join([ctx.ay, ctx.am, ctx.bn]).lower()
     if not al:
         r['C005'] = ControlResult('FLAG', 'AL7 is blank, so the YES/NO seasonality or condition toggle cannot be validated.', WHY['C005'], SOURCES['C005'])
     elif al in {'no', 'n', 'false'}:
@@ -348,7 +348,7 @@ def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
             r['C011'] = ControlResult('FLAG', f'Latest Gong meeting spacing is {ctx.gap} days ({ctx.prev_call.date()} to {ctx.last_call.date()}).', WHY['C011'], SOURCES['C011'])
 
     active_types = detect_personalizations(ctx)
-    documented_count, matched = documented_personalizations(ctx.t7, active_types)
+    documented_count, matched = documented_personalizations(ctx.t7 if hasattr(ctx, "t7") else "", active_types)
     active_count = len(active_types)
     if active_count == 0:
         r['C012'] = ControlResult('OK', '', WHY['C012'], SOURCES['C012'])
@@ -403,26 +403,13 @@ def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
     r['C015'] = ControlResult('OK', '', WHY['C015'], SOURCES['C015'])
     r['C016'] = ControlResult('OK', '', WHY['C016'], SOURCES['C016'])
 
-    txt = ctx.t7
-    if not txt:
-        r['C017'] = ControlResult('FLAG', 'CS Notes are not documented in 54_Project_Dataset_on_SF!T7.', WHY['C017'], SOURCES['C017'])
-    else:
-        dims = {'objective': has_any(txt, OBJECTIVE_WORDS), 'challenges': has_any(txt, CHALLENGE_WORDS), 'customization': len(detect_personalizations(ctx)) > 0 or any(kw in txt.lower() for words in PERSONALIZATION_KEYWORDS.values() for kw in words), 'strategy': has_any(txt, CONSTRAINT_WORDS | {'strategy', 'plan', 'focus', 'priority'})}
-        n = sum(dims.values())
-        if n >= 3 and len(txt.split()) >= 25:
-            r['C017'] = ControlResult('OK', '', WHY['C017'], SOURCES['C017'])
-        elif n >= 1:
-            r['C017'] = ControlResult('PARTIAL', 'CS Notes are documented, but the account context is only partially captured.', WHY['C017'], SOURCES['C017'])
-        else:
-            r['C017'] = ControlResult('FLAG', 'CS Notes are documented, but they do not capture usable account context.', WHY['C017'], SOURCES['C017'])
-
     return r
 
 
 def build_summary(ctx: DatabricksContext, results: Dict[str, ControlResult]) -> dict:
     import warnings
     budget_constraint = None
-    text = ' '.join([ctx.ay, ctx.am, ctx.bn, ctx.t7])
+    text = ' '.join([ctx.ay, ctx.am, ctx.bn])
     m = re.search(r'([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+(?:\.[0-9]+)?k)\s*(?:monthly|/month|per month)', text, re.I)
     if m:
         budget_constraint = to_float(m.group(1))
@@ -436,7 +423,7 @@ def build_summary(ctx: DatabricksContext, results: Dict[str, ControlResult]) -> 
         budget_constraint = to_float(m.group(1))
     return {
         'primary_objective': build_primary_objective(ctx, results),
-        'customization_context': ctx.t7 if ctx.t7 else 'No customization context documented in CS Notes.',
+        'customization_context': 'Not evaluated — CS Notes assessed during QR call.',
         'monthly_budget': monthly_budget_from_daily(ctx),
         'acos_objective': norm_pct(ctx.proj_j),
         'tacos_objective': norm_pct(ctx.proj_k),
