@@ -51,7 +51,6 @@ class DatabricksContext:
     proj_i: object = None
     proj_j: object = None
     proj_k: object = None
-    t7: str = ''
     df02: Optional[pd.DataFrame] = None
     df07: Optional[pd.DataFrame] = None
     df14: Optional[pd.DataFrame] = None
@@ -252,7 +251,6 @@ def load_databricks_context(path: str) -> DatabricksContext:
         ctx.proj_i = ws54['I7'].value
         ctx.proj_j = ws54['J7'].value
         ctx.proj_k = ws54['K7'].value
-        ctx.t7     = clean_text(ws54['T7'].value)
 
     finally:
         try:
