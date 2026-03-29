@@ -21,7 +21,7 @@ IMPACT_LABEL = {10: 'Critical', 9: 'High', 8: 'High', 7: 'Medium', 6: 'Medium', 
 IMPORTANCE = {
     'C001': 10, 'C002': 8,  'C003': 9,  'C004': 6,  'C005': 8,  'C006': 8,  'C007': 7,
     'C008': 9,  'C009': 6,  'C010': 5,  'C011': 5,  'C012': 9,  'C013': 10, 'C014': 6,
-    'C015': 7,  'C016': 8,  'C017': 10,
+    'C015': 7,  'C016': 8,
 }
 
 CONTROL_NAMES = {
@@ -41,7 +41,6 @@ CONTROL_NAMES = {
     'C014': 'Product Tagging / Segmentation Logic Present',
     'C015': 'On-Call Interaction Quality',
     'C016': 'On-Call Explanation Quality',
-    'C017': 'CS Notes Completeness & Quality',
 }
 
 WHY = {
@@ -61,7 +60,6 @@ WHY = {
     'C014': 'Product tagging and segmentation reveal whether the account structure supports the intended strategy.',
     'C015': 'Manual review required during QR presentation call — interaction quality cannot be assessed from system data.',
     'C016': 'Manual review required during QR presentation call — explanation quality cannot be assessed from system data.',
-    'C017': 'CS Notes are the main qualitative bridge between raw data and the strategic reality of the account.',
 }
 
 SOURCES = {
@@ -81,7 +79,6 @@ SOURCES = {
     'C014': '14_Campaign_Performance_by_Adve!X:AB / Tag1-Tag5',
     'C015': 'Manual review required — QR presentation call',
     'C016': 'Manual review required — QR presentation call',
-    'C017': '54_Project_Dataset_on_SF!T7',
 }
 
 
