@@ -155,13 +155,27 @@ def _parse_header(ws) -> dict:
     }
 
 
-def _get_df_from_wb(wb, sheet: str) -> Optional[pd.DataFrame]:
-    """Read a sheet from an already-open workbook into a DataFrame."""
-    if sheet not in wb.sheetnames:
+def _find_sheet(wb, prefix: str) -> Optional[str]:
+    """Return the first sheet name that starts with prefix, or None."""
+    for name in wb.sheetnames:
+        if name.startswith(prefix):
+            return name
+    return None
+
+
+def _get_ws(wb, prefix: str):
+    """Return the worksheet whose name starts with prefix, or None."""
+    name = _find_sheet(wb, prefix)
+    return wb[name] if name else None
+
+
+def _get_df_from_wb(wb, sheet_prefix: str) -> Optional[pd.DataFrame]:
+    """Read a sheet from an already-open workbook into a DataFrame using prefix matching."""
+    sheet = _find_sheet(wb, sheet_prefix)
+    if sheet is None:
         return None
     try:
-        header_row = SHEET_HEADER_ROW.get(sheet, DEFAULT_HEADER_ROW)
-        # openpyxl read_only mode: convert to list of rows then build DataFrame
+        header_row = SHEET_HEADER_ROW.get(sheet_prefix, DEFAULT_HEADER_ROW)
         ws = wb[sheet]
         rows = list(ws.iter_rows(values_only=True))
         if len(rows) <= header_row:
@@ -190,7 +204,10 @@ def load_databricks_context(path: str) -> DatabricksContext:
     wb = load_workbook(path, data_only=True, read_only=True)
 
     try:
-        h = _parse_header(wb['01_Advertiser_Name'])
+        ws01 = _get_ws(wb, '01_Advertiser_Name')
+        if ws01 is None:
+            raise ValueError('Sheet starting with 01_Advertiser_Name not found in export.')
+        h = _parse_header(ws01)
         ctx = DatabricksContext(path=path, **h)
 
         # --- DataFrames ---
@@ -209,7 +226,9 @@ def load_databricks_context(path: str) -> DatabricksContext:
         ctx.df35 = _get_df_from_wb(wb, '35_Campaign_Level_ACoS')
 
         # --- Single cells from 38_Client_Success_Insights_Repo ---
-        ws38 = wb['38_Client_Success_Insights_Repo']
+        ws38 = _get_ws(wb, '38_Client_Success_Insights_Repo')
+        if ws38 is None:
+            raise ValueError('Sheet starting with 38_Client_Success_Insights_Repo not found in export.')
         ctx.ay  = clean_text(ws38['AY7'].value)
         ctx.am  = clean_text(ws38['AM7'].value)
         ctx.bn  = clean_text(ws38['BN7'].value)
@@ -221,9 +240,12 @@ def load_databricks_context(path: str) -> DatabricksContext:
         ctx.ax7 = ws38['AX7'].value
 
         # --- Single cells from other sheets ---
-        ctx.journey_h7 = wb['39_Client_Journey_Insights_Data']['H7'].value
+        ws39 = _get_ws(wb, '39_Client_Journey_Insights_Data')
+        ctx.journey_h7 = ws39['H7'].value if ws39 is not None else None
 
-        ws54 = wb['54_Project_Dataset_on_SF']
+        ws54 = _get_ws(wb, '54_Project_Dataset_on_SF')
+        if ws54 is None:
+            raise ValueError('Sheet starting with 54_Project_Dataset_on_SF not found in export.')
         ctx.p7     = ws54['P7'].value
         ctx.q7     = ws54['Q7'].value
         ctx.proj_h = ws54['H7'].value
