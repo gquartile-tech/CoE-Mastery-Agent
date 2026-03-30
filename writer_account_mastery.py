@@ -65,10 +65,10 @@ def write_mastery_output(template_path, output_path, summary, results, penalty, 
     ws_logic['B3'] = penalty
     ws_logic['B4'] = score
     ws_logic['B5'] = grade
-    for idx, cid in enumerate([f'C{i:03d}' for i in range(1, 18)], start=8):
-        res = results[cid]
+    for idx, (cid, res) in enumerate(results.items(), start=8):
+        row_ref = cid_to_row.get(cid)
         ws_logic[f'A{idx}'] = cid
-        ws_logic[f'B{idx}'] = clean_text(ws_ref[f'A{cid_to_row[cid]}'].value)
+        ws_logic[f'B{idx}'] = clean_text(ws_ref[f'A{row_ref}'].value) if row_ref else ''
         ws_logic[f'C{idx}'] = CONTROL_NAMES[cid]
         ws_logic[f'D{idx}'] = res.status
         ws_logic[f'E{idx}'] = PRIORITY_POINTS[IMPORTANCE[cid]]
