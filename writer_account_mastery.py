@@ -50,15 +50,15 @@ def write_mastery_output(template_path, output_path, summary, results, penalty, 
 
     for cid, res in results.items():
         if cid not in cid_to_row:
-            print(f"[writer] WARNING: control {cid} not found in Account Mastery_Reference sheet — skipping. Check template version.")
+            print(f"[writer] WARNING: control {cid} not found in Account Mastery_Reference sheet — skipping.")
             continue
         rr = cid_to_row[cid]
-        ws_ref[f'C{rr}'] = CONTROL_NAMES[cid]
+        ws_ref[f'C{rr}'] = CONTROL_NAMES.get(cid, '')
         ws_ref[f'D{rr}'] = res.status
         ws_ref[f'H{rr}'] = res.what
         ws_ref[f'I{rr}'] = res.why
         ws_ref[f'J{rr}'] = res.source
-        ws_ref[f'M{rr}'] = PRIORITY_POINTS[IMPORTANCE[cid]]
+        ws_ref[f'M{rr}'] = PRIORITY_POINTS.get(IMPORTANCE.get(cid, 1), 0)
         for cell in [f'H{rr}', f'I{rr}', f'J{rr}']:
             ws_ref[cell].alignment = Alignment(wrap_text=True, vertical='top')
 
@@ -69,10 +69,10 @@ def write_mastery_output(template_path, output_path, summary, results, penalty, 
         row_ref = cid_to_row.get(cid)
         ws_logic[f'A{idx}'] = cid
         ws_logic[f'B{idx}'] = clean_text(ws_ref[f'A{row_ref}'].value) if row_ref else ''
-        ws_logic[f'C{idx}'] = CONTROL_NAMES[cid]
+        ws_logic[f'C{idx}'] = CONTROL_NAMES.get(cid, '')
         ws_logic[f'D{idx}'] = res.status
-        ws_logic[f'E{idx}'] = PRIORITY_POINTS[IMPORTANCE[cid]]
-        ws_logic[f'F{idx}'] = PRIORITY_POINTS[IMPORTANCE[cid]] if res.status == 'FLAG' else PRIORITY_POINTS[IMPORTANCE[cid]] * 0.5 if res.status == 'PARTIAL' else 0
+        ws_logic[f'E{idx}'] = PRIORITY_POINTS.get(IMPORTANCE.get(cid, 1), 0)
+        ws_logic[f'F{idx}'] = PRIORITY_POINTS.get(IMPORTANCE.get(cid, 1), 0) if res.status == 'FLAG' else PRIORITY_POINTS.get(IMPORTANCE.get(cid, 1), 0) * 0.5 if res.status == 'PARTIAL' else 0
 
     start_row = 28
     priority_items = [f for f in findings if f['status'] in ('FLAG', 'PARTIAL')]
