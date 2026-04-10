@@ -333,6 +333,17 @@ def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
             r['C010'] = ControlResult('FLAG', f'Active personalization was detected across {active_count} area(s) ({labels}), but CS Notes do not sufficiently document the setup.', WHY['C010'], SOURCES['C010'])
 
     daily_target = to_float(ctx.proj_h)
+    if daily_target is None or not ctx.window_days or ctx.metrics.get('AdSpend') is None:
+        r['C011'] = ControlResult('OK', '', WHY['C011'], SOURCES['C011'])
+    else:
+        actual_daily = float(ctx.metrics['AdSpend']) / ctx.window_days
+        gap = abs(actual_daily - daily_target) / daily_target if daily_target else None
+        if gap is None or gap <= 0.20:
+            r['C011'] = ControlResult('OK', '', WHY['C011'], SOURCES['C011'])
+        elif gap <= 0.40:
+            r['C011'] = ControlResult('PARTIAL', f'Spend target {daily_target:.1f}/day vs actual daily spend {actual_daily:.1f} — moderate deviation ({gap:.0%}).', WHY['C011'], SOURCES['C011'])
+        else:
+            r['C011'] = ControlResult('FLAG', f'Spend target {daily_target:.1f}/day vs actual daily spend {actual_daily:.1f} — significant deviation ({gap:.0%}).', WHY['C011'], SOURCES['C011'])
 
     tags = [t.lower() for t in ctx.tags if t]
     has_best = any(any(w in t for w in BESTSELLER_WORDS) for t in tags)
