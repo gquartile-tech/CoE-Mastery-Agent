@@ -206,160 +206,251 @@ def evaluate_all(ctx: DatabricksContext) -> Dict[str, ControlResult]:
 def _evaluate_all_inner(ctx: DatabricksContext) -> Dict[str, ControlResult]:
     r: Dict[str, ControlResult] = {}
 
+    # -------------------------------------------------------------------------
+    # C001 — Objective Clearly Defined
+    # -------------------------------------------------------------------------
     txt = ctx.ay
     if not txt:
-        r['C001'] = ControlResult('FLAG', 'Objective is not documented in 38_Client_Success_Insights_Repo!AY7.', WHY['C001'], SOURCES['C001'])
+        r['C001'] = ControlResult('FLAG', 'No primary objective is written in the account notes (AY7).', WHY['C001'], SOURCES['C001'])
     else:
-        score = sum([has_any(txt, OBJECTIVE_WORDS), has_any(txt, KPI_WORDS | {'awareness', 'ranking', 'market share'}), any(w in txt.lower() for w in ['gain', 'grow', 'increase', 'improve', 'stabilize', 'maintain', 'scale', 'accelerate'])])
+        score = sum([
+            has_any(txt, OBJECTIVE_WORDS),
+            has_any(txt, KPI_WORDS | {'awareness', 'ranking', 'market share'}),
+            any(w in txt.lower() for w in ['gain', 'grow', 'increase', 'improve', 'stabilize', 'maintain', 'scale', 'accelerate']),
+        ])
         if score >= 3:
-            r['C001'] = ControlResult('OK', '', WHY['C001'], SOURCES['C001'])
+            r['C001'] = ControlResult('OK', 'Primary objective is documented and linked to a clear business outcome.', WHY['C001'], SOURCES['C001'])
         elif score == 2:
-            r['C001'] = ControlResult('PARTIAL', 'Objective is documented, but it is not clearly anchored to a measurable KPI or business outcome.', WHY['C001'], SOURCES['C001'])
+            r['C001'] = ControlResult('PARTIAL', 'Objective is written, but it is not clearly linked to a measurable KPI or a specific business result.', WHY['C001'], SOURCES['C001'])
         else:
-            r['C001'] = ControlResult('FLAG', 'Objective is documented, but the definition is too vague to use as a clear account anchor.', WHY['C001'], SOURCES['C001'])
+            r['C001'] = ControlResult('FLAG', 'Objective is written, but the language is too vague to use as a clear direction for this account.', WHY['C001'], SOURCES['C001'])
 
+    # -------------------------------------------------------------------------
+    # C002 — Objective vs Near-Term Alignment
+    # Timeframe is a hard gate — without it the result cannot be OK.
+    # Requires all 5 dimensions for OK; at least 3 for PARTIAL.
+    # -------------------------------------------------------------------------
     txt = ctx.am
     if not txt:
-        r['C002'] = ControlResult('FLAG', 'Primary objective description is not documented in 38_Client_Success_Insights_Repo!AM7.', WHY['C002'], SOURCES['C002'])
+        r['C002'] = ControlResult('FLAG', 'The objective context field (AM7) is empty. There is no supporting detail for the primary objective.', WHY['C002'], SOURCES['C002'])
     else:
-        dims = {'objective': has_any(txt, OBJECTIVE_WORDS), 'kpi': has_any(txt, KPI_WORDS), 'constraint': has_any(txt, CONSTRAINT_WORDS), 'context': len(txt.split()) >= 15, 'timeframe': has_any(txt, TIME_WORDS)}
+        dims = {
+            'objective':  has_any(txt, OBJECTIVE_WORDS),
+            'kpi':        has_any(txt, KPI_WORDS),
+            'constraint': has_any(txt, CONSTRAINT_WORDS),
+            'context':    len(txt.split()) >= 15,
+            'timeframe':  has_any(txt, TIME_WORDS),
+        }
         n = sum(dims.values())
-        if n >= 4:
-            r['C002'] = ControlResult('OK', '', WHY['C002'], SOURCES['C002'])
-        elif n >= 2:
-            r['C002'] = ControlResult('PARTIAL', 'Primary objective description is documented, but KPI, timeframe, constraint, or context coverage is incomplete.', WHY['C002'], SOURCES['C002'])
+        missing = [k for k, v in dims.items() if not v]
+        has_timeframe = dims['timeframe']
+        if n == 5:
+            r['C002'] = ControlResult('OK', 'Objective context covers all required elements: goal, KPI, constraint, timeframe, and narrative depth.', WHY['C002'], SOURCES['C002'])
+        elif n >= 3 and has_timeframe:
+            r['C002'] = ControlResult('PARTIAL', f'Objective context is written but some elements are missing: {", ".join(missing)}.', WHY['C002'], SOURCES['C002'])
+        elif n >= 3 and not has_timeframe:
+            r['C002'] = ControlResult('PARTIAL', f'Objective context is written but has no timeframe or near-term reference. Also missing: {", ".join([m for m in missing if m != "timeframe"])}.', WHY['C002'], SOURCES['C002'])
         else:
-            r['C002'] = ControlResult('FLAG', 'Primary objective description is documented, but it does not contain enough strategic detail to assess the account objective.', WHY['C002'], SOURCES['C002'])
+            r['C002'] = ControlResult('FLAG', f'Objective context does not have enough detail to review near-term alignment. Missing elements: {", ".join(missing)}.', WHY['C002'], SOURCES['C002'])
 
+    # -------------------------------------------------------------------------
+    # C003 — Account Challenges Documented
+    # -------------------------------------------------------------------------
     txt = ctx.bn
     if not txt:
-        r['C003'] = ControlResult('FLAG', 'Current challenges are not documented in 38_Client_Success_Insights_Repo!BN7.', WHY['C003'], SOURCES['C003'])
+        r['C003'] = ControlResult('FLAG', 'No current challenges are documented in the account notes (BN7).', WHY['C003'], SOURCES['C003'])
     else:
         specific = len(txt.split()) >= 12 and has_any(txt, CHALLENGE_WORDS)
         if specific:
-            r['C003'] = ControlResult('OK', '', WHY['C003'], SOURCES['C003'])
+            r['C003'] = ControlResult('OK', 'Current challenges are documented with enough detail to understand the active account blockers.', WHY['C003'], SOURCES['C003'])
         elif len(txt.split()) >= 6:
-            r['C003'] = ControlResult('PARTIAL', 'Current challenges are documented, but the description is generic and does not clearly define the active account blockers.', WHY['C003'], SOURCES['C003'])
+            r['C003'] = ControlResult('PARTIAL', 'Challenges are written, but the description is too general. It does not clearly explain what is blocking the account today.', WHY['C003'], SOURCES['C003'])
         else:
-            r['C003'] = ControlResult('FLAG', 'Current challenges are not clearly documented.', WHY['C003'], SOURCES['C003'])
+            r['C003'] = ControlResult('FLAG', 'The challenges field has very little content. More detail is needed for a proper review.', WHY['C003'], SOURCES['C003'])
 
+    # -------------------------------------------------------------------------
+    # C004 — Seasonality Awareness
+    # -------------------------------------------------------------------------
     source_months = parse_months_from_text(ctx.am)
     mention_months = set()
     for text in [ctx.ay, ctx.bn]:
         mention_months |= parse_months_from_text(text)
     if source_months and mention_months:
-        r['C004'] = ControlResult('OK', '', WHY['C004'], SOURCES['C004'])
+        r['C004'] = ControlResult('OK', f'Seasonality is documented and consistent across account fields. Seasonal months detected: {sorted(source_months)}.', WHY['C004'], SOURCES['C004'])
     elif source_months and not mention_months:
-        r['C004'] = ControlResult('FLAG', 'Seasonality is detected based on account context, but it is not documented in the approved narrative fields outside the Health seasonality source.', WHY['C004'], SOURCES['C004'])
+        r['C004'] = ControlResult('FLAG', f'Seasonality was detected in the account context (months: {sorted(source_months)}), but it is not referenced in the main narrative fields.', WHY['C004'], SOURCES['C004'])
     elif not source_months and mention_months:
-        r['C004'] = ControlResult('PARTIAL', 'Seasonality is referenced in narrative, but no seasonality signal was detected from the Health seasonality source.', WHY['C004'], SOURCES['C004'])
+        r['C004'] = ControlResult('PARTIAL', f'Seasonality is mentioned in the narrative (months: {sorted(mention_months)}), but no matching signal was found in the account context source.', WHY['C004'], SOURCES['C004'])
     else:
-        r['C004'] = ControlResult('OK', '', WHY['C004'], SOURCES['C004'])
+        r['C004'] = ControlResult('OK', 'No seasonality detected. This is expected for non-seasonal accounts.', WHY['C004'], SOURCES['C004'])
 
-    r['C005'] = ControlResult('OK', '', WHY['C005'], SOURCES['C005'])
-
-    if ctx.journey_h7:
-        r['C006'] = ControlResult('OK', '', WHY['C006'], SOURCES['C006'])
-    else:
-        r['C006'] = ControlResult('FLAG', 'A Client Journey Map is not present in 39_Client_Journey_Insights_Data.', WHY['C006'], SOURCES['C006'])
-
-    acos_c = norm_pct(ctx.o7); tacos_c = norm_pct(ctx.ax7); proj_acos = norm_pct(ctx.proj_j); proj_tacos = norm_pct(ctx.proj_k)
-    checks = []
-    for target, constraint in [(proj_acos, acos_c), (proj_tacos, tacos_c)]:
-        if target is None or constraint is None:
-            checks.append(None)
+    # -------------------------------------------------------------------------
+    # C005 — Operational Constraints Awareness
+    # -------------------------------------------------------------------------
+    al = ctx.al.strip().lower()
+    support = ' '.join([ctx.ay, ctx.am, ctx.bn]).lower()
+    if not al:
+        r['C005'] = ControlResult('FLAG', 'The operational constraints field (AL7) is blank. It must be set to YES or NO.', WHY['C005'], SOURCES['C005'])
+    elif al in {'no', 'n', 'false'}:
+        r['C005'] = ControlResult('OK', 'No operational constraints flagged (AL7 = No). Nothing to validate.', WHY['C005'], SOURCES['C005'])
+    elif al in {'yes', 'y', 'true'}:
+        supported = any(w in support for w in CONFLICT_WORDS | {'seasonal', 'prime day', 'holiday', 'bfcm'})
+        if supported:
+            r['C005'] = ControlResult('OK', 'Operational constraints are flagged (AL7 = Yes) and the context is visible in the narrative fields.', WHY['C005'], SOURCES['C005'])
         else:
-            checks.append(target <= constraint + 1e-9)
-    if checks == [True, True]:
-        r['C007'] = ControlResult('OK', '', WHY['C007'], SOURCES['C007'])
-    elif any(v is False for v in checks) and any(v is True for v in checks):
-        r['C007'] = ControlResult('PARTIAL', f'Constraint alignment is mixed. ACoS constraint {pct_str(acos_c)} vs project target {pct_str(proj_acos)}; TACoS constraint {pct_str(tacos_c)} vs project target {pct_str(proj_tacos)}.', WHY['C007'], SOURCES['C007'])
-    elif any(v is False for v in checks):
-        r['C007'] = ControlResult('FLAG', f'Project KPI targets are looser than the current account constraints. ACoS constraint {pct_str(acos_c)} vs project target {pct_str(proj_acos)}; TACoS constraint {pct_str(tacos_c)} vs project target {pct_str(proj_tacos)}.', WHY['C007'], SOURCES['C007'])
+            r['C005'] = ControlResult('FLAG', 'Operational constraints are flagged (AL7 = Yes), but no supporting context was found in the narrative fields. The constraint needs to be explained.', WHY['C005'], SOURCES['C005'])
     else:
-        r['C007'] = ControlResult('PARTIAL', f'Constraint alignment could not be fully validated. ACoS constraint {pct_str(acos_c)} vs project target {pct_str(proj_acos)}; TACoS constraint {pct_str(tacos_c)} vs project target {pct_str(proj_tacos)}.', WHY['C007'], SOURCES['C007'])
+        r['C005'] = ControlResult('FLAG', f'The operational constraints field (AL7) has an unexpected value: "{ctx.al}". Expected YES or NO.', WHY['C005'], SOURCES['C005'])
 
+    # -------------------------------------------------------------------------
+    # C006 — Client Journey Map
+    # -------------------------------------------------------------------------
+    if ctx.journey_h7:
+        r['C006'] = ControlResult('OK', 'A Client Journey Map is linked to this account.', WHY['C006'], SOURCES['C006'])
+    else:
+        r['C006'] = ControlResult('FLAG', 'No Client Journey Map was found for this account. It needs to be created and linked.', WHY['C006'], SOURCES['C006'])
+
+    # -------------------------------------------------------------------------
+    # C007 — Narrative Consistency
+    # If both constraints are missing, FLAG — constraint documentation is mandatory.
+    # If constraints exist, project targets must not be looser than the agreed limits.
+    # -------------------------------------------------------------------------
+    acos_c = norm_pct(ctx.o7)
+    tacos_c = norm_pct(ctx.ax7)
+    proj_acos = norm_pct(ctx.proj_j)
+    proj_tacos = norm_pct(ctx.proj_k)
+
+    if acos_c is None and tacos_c is None:
+        r['C007'] = ControlResult(
+            'FLAG',
+            'ACoS and TACoS constraints are not documented in the project dataset. Without agreed limits, it is not possible to confirm the account is being managed within the right boundaries.',
+            WHY['C007'], SOURCES['C007'],
+        )
+    else:
+        checks = []
+        for target, constraint in [(proj_acos, acos_c), (proj_tacos, tacos_c)]:
+            if target is None or constraint is None:
+                checks.append(None)
+            else:
+                checks.append(target <= constraint + 1e-9)
+        if checks == [True, True]:
+            r['C007'] = ControlResult(
+                'OK',
+                f'Project targets are within the agreed constraints. ACoS: target {pct_str(proj_acos)} vs limit {pct_str(acos_c)}. TACoS: target {pct_str(proj_tacos)} vs limit {pct_str(tacos_c)}.',
+                WHY['C007'], SOURCES['C007'],
+            )
+        elif any(v is False for v in checks) and any(v is True for v in checks):
+            r['C007'] = ControlResult(
+                'PARTIAL',
+                f'One target is outside the agreed constraint. ACoS: target {pct_str(proj_acos)} vs limit {pct_str(acos_c)}. TACoS: target {pct_str(proj_tacos)} vs limit {pct_str(tacos_c)}.',
+                WHY['C007'], SOURCES['C007'],
+            )
+        elif any(v is False for v in checks):
+            r['C007'] = ControlResult(
+                'FLAG',
+                f'Project targets are looser than the agreed constraints. ACoS: target {pct_str(proj_acos)} vs limit {pct_str(acos_c)}. TACoS: target {pct_str(proj_tacos)} vs limit {pct_str(tacos_c)}.',
+                WHY['C007'], SOURCES['C007'],
+            )
+        else:
+            r['C007'] = ControlResult(
+                'PARTIAL',
+                f'Constraint alignment could not be fully confirmed. ACoS: target {pct_str(proj_acos)} vs limit {pct_str(acos_c)}. TACoS: target {pct_str(proj_tacos)} vs limit {pct_str(tacos_c)}.',
+                WHY['C007'], SOURCES['C007'],
+            )
+
+    # -------------------------------------------------------------------------
+    # C008 — Sales Concentration Matches Account Story
+    # -------------------------------------------------------------------------
     if ctx.top1 is None:
-        r['C008'] = ControlResult('FLAG', 'Sales concentration could not be evaluated because parent-ASIN sales data was unavailable.', WHY['C008'], SOURCES['C008'])
+        r['C008'] = ControlResult('FLAG', 'Sales concentration could not be checked because parent-ASIN sales data was not available.', WHY['C008'], SOURCES['C008'])
     else:
         actual_class = classify_concentration(ctx.top1, ctx.top3, ctx.top5)
         narr = ctx.au.lower()
         narr_class = 'high' if 'high' in narr else 'medium' if ('medium' in narr or 'moderate' in narr) else 'low' if ('low' in narr or 'diversified' in narr) else None
+        conc_detail = f'Top 1 ASIN: {pct_str(ctx.top1)}, top 3: {pct_str(ctx.top3)}, top 5: {pct_str(ctx.top5)}.'
         if narr_class == actual_class:
-            r['C008'] = ControlResult('OK', '', WHY['C008'], SOURCES['C008'])
+            r['C008'] = ControlResult('OK', f'Sales concentration is documented as {actual_class} and matches the actual data. {conc_detail}', WHY['C008'], SOURCES['C008'])
         elif narr_class is None:
-            r['C008'] = ControlResult('FLAG', f'Sales concentration is not documented in AU7. Actual concentration is {actual_class} (top1 {pct_str(ctx.top1)}, top3 {pct_str(ctx.top3)}, top5 {pct_str(ctx.top5)}).', WHY['C008'], SOURCES['C008'])
+            r['C008'] = ControlResult('FLAG', f'Sales concentration is not documented in AU7. Actual concentration is {actual_class}. {conc_detail}', WHY['C008'], SOURCES['C008'])
         else:
-            r['C008'] = ControlResult('FLAG', f'Sales concentration narrative does not match actual concentration. AU7 says {ctx.au or "not documented"}; actual concentration is {actual_class} (top1 {pct_str(ctx.top1)}, top3 {pct_str(ctx.top3)}, top5 {pct_str(ctx.top5)}).', WHY['C008'], SOURCES['C008'])
+            r['C008'] = ControlResult('FLAG', f'Sales concentration in the notes says "{narr_class}" but the actual data shows "{actual_class}". {conc_detail} The notes need to be updated.', WHY['C008'], SOURCES['C008'])
 
+    # -------------------------------------------------------------------------
+    # C009 — Client Contact Cadence (last 6 months)
+    # -------------------------------------------------------------------------
     if ctx.gap is None:
         if ctx.last_call is not None:
-            r['C009'] = ControlResult('PARTIAL', f'Only one valid Gong meeting date was found ({ctx.last_call.date()}); cadence could not be assessed from two meetings.', WHY['C009'], SOURCES['C009'])
+            r['C009'] = ControlResult('PARTIAL', f'Only one Gong meeting was found ({ctx.last_call.date()}). Two meetings are needed to measure the contact cadence.', WHY['C009'], SOURCES['C009'])
         else:
-            r['C009'] = ControlResult('FLAG', 'No valid Gong meeting dates were found in column P.', WHY['C009'], SOURCES['C009'])
+            r['C009'] = ControlResult('FLAG', 'No Gong meetings were found for this account. Client contact cadence cannot be confirmed.', WHY['C009'], SOURCES['C009'])
     else:
         if ctx.gap <= 30:
-            r['C009'] = ControlResult('OK', '', WHY['C009'], SOURCES['C009'])
+            r['C009'] = ControlResult('OK', f'Last two meetings were {ctx.gap} days apart ({ctx.prev_call.date()} → {ctx.last_call.date()}). Cadence is within the 30-day target.', WHY['C009'], SOURCES['C009'])
         elif ctx.gap <= 60:
-            r['C009'] = ControlResult('PARTIAL', f'Latest Gong meeting spacing is {ctx.gap} days ({ctx.prev_call.date()} to {ctx.last_call.date()}).', WHY['C009'], SOURCES['C009'])
+            r['C009'] = ControlResult('PARTIAL', f'Last two meetings were {ctx.gap} days apart ({ctx.prev_call.date()} → {ctx.last_call.date()}). This is above the 30-day target.', WHY['C009'], SOURCES['C009'])
         else:
-            r['C009'] = ControlResult('FLAG', f'Latest Gong meeting spacing is {ctx.gap} days ({ctx.prev_call.date()} to {ctx.last_call.date()}).', WHY['C009'], SOURCES['C009'])
+            r['C009'] = ControlResult('FLAG', f'Last two meetings were {ctx.gap} days apart ({ctx.prev_call.date()} → {ctx.last_call.date()}). This is a long gap — the account story may be out of date.', WHY['C009'], SOURCES['C009'])
 
+    # -------------------------------------------------------------------------
+    # C010 — Customizations Documented & Justified
+    # -------------------------------------------------------------------------
     active_types = detect_personalizations(ctx)
     documented_count, matched = documented_personalizations(ctx.t7 if hasattr(ctx, "t7") else "", active_types)
     active_count = len(active_types)
     if active_count == 0:
-        r['C010'] = ControlResult('OK', '', WHY['C010'], SOURCES['C010'])
+        r['C010'] = ControlResult('OK', 'No active framework customizations were detected. Nothing to document.', WHY['C010'], SOURCES['C010'])
     else:
         ratio = documented_count / active_count if active_count else 0
         labels = ', '.join(active_types)
         if documented_count >= active_count:
-            r['C010'] = ControlResult('OK', '', WHY['C010'], SOURCES['C010'])
+            r['C010'] = ControlResult('OK', f'{active_count} active customization(s) detected ({labels}) and all are documented in CS Notes.', WHY['C010'], SOURCES['C010'])
         elif ratio >= 0.5:
-            r['C010'] = ControlResult('PARTIAL', f'Active personalization was detected across {active_count} area(s) ({labels}), with partial documentation in CS Notes.', WHY['C010'], SOURCES['C010'])
+            r['C010'] = ControlResult('PARTIAL', f'{active_count} active customization(s) detected ({labels}), but only {documented_count} of them are documented in CS Notes.', WHY['C010'], SOURCES['C010'])
         else:
-            r['C010'] = ControlResult('FLAG', f'Active personalization was detected across {active_count} area(s) ({labels}), but CS Notes do not sufficiently document the setup.', WHY['C010'], SOURCES['C010'])
+            r['C010'] = ControlResult('FLAG', f'{active_count} active customization(s) detected ({labels}), but most are not documented in CS Notes. The CoE cannot tell if these are intentional.', WHY['C010'], SOURCES['C010'])
 
+    # -------------------------------------------------------------------------
+    # C011 — Target Spend / KPI Targets Documented
+    # Only spend deviation is evaluated (KPI targets excluded per design decision).
+    # -------------------------------------------------------------------------
     checks = []
     msgs = []
     daily_target = to_float(ctx.proj_h)
     if daily_target is not None and ctx.window_days and ctx.metrics.get('AdSpend') is not None:
         actual_daily = float(ctx.metrics['AdSpend']) / ctx.window_days
         gap = abs(actual_daily - daily_target) / daily_target if daily_target else None
+        deviation_pct = f'{gap * 100:.0f}%' if gap is not None else 'unknown'
+        direction = 'below' if actual_daily < daily_target else 'above'
         checks.append('OK' if gap is not None and gap <= 0.20 else 'PARTIAL' if gap is not None and gap <= 0.40 else 'FLAG')
-        msgs.append(f'spend target {daily_target:.1f} vs actual daily spend {actual_daily:.1f}')
-    acos_t = norm_pct(ctx.proj_j)
-    if acos_t is not None and ctx.metrics.get('ACoS') is not None:
-        gap = abs(float(ctx.metrics['ACoS']) - acos_t) / acos_t if acos_t else None
-        checks.append('OK' if gap is not None and gap <= 0.10 else 'PARTIAL' if gap is not None and gap <= 0.25 else 'FLAG')
-        msgs.append(f'ACoS target {pct_str(acos_t)} vs current {pct_str(float(ctx.metrics["ACoS"]))}')
-    tacos_t = norm_pct(ctx.proj_k)
-    if tacos_t is not None and ctx.metrics.get('TACoS') is not None:
-        gap = abs(float(ctx.metrics['TACoS']) - tacos_t) / tacos_t if tacos_t else None
-        checks.append('OK' if gap is not None and gap <= 0.10 else 'PARTIAL' if gap is not None and gap <= 0.25 else 'FLAG')
-        msgs.append(f'TACoS target {pct_str(tacos_t)} vs current {pct_str(float(ctx.metrics["TACoS"]))}')
+        msgs.append(f'Spend target ${daily_target:.0f}/day vs actual ${actual_daily:.0f}/day ({deviation_pct} {direction} target)')
     if not checks:
-        r['C011'] = ControlResult('OK', '', WHY['C011'], SOURCES['C011'])
+        r['C011'] = ControlResult('OK', 'No spend target is documented in the project dataset. Spend pacing was not evaluated.', WHY['C011'], SOURCES['C011'])
     elif all(x == 'OK' for x in checks):
-        r['C011'] = ControlResult('OK', '', WHY['C011'], SOURCES['C011'])
+        r['C011'] = ControlResult('OK', f'{" | ".join(msgs)} — within acceptable range.', WHY['C011'], SOURCES['C011'])
     elif 'FLAG' in checks:
-        r['C011'] = ControlResult('FLAG', 'Target vs actual performance shows significant deviation across key KPIs.', WHY['C011'], SOURCES['C011'])
+        r['C011'] = ControlResult('FLAG', f'{" | ".join(msgs)} — significant deviation from the documented target.', WHY['C011'], SOURCES['C011'])
     else:
-        r['C011'] = ControlResult('PARTIAL', 'Target vs actual performance shows moderate deviation across key KPIs.', WHY['C011'], SOURCES['C011'])
+        r['C011'] = ControlResult('PARTIAL', f'{" | ".join(msgs)} — moderate deviation from the documented target.', WHY['C011'], SOURCES['C011'])
 
+    # -------------------------------------------------------------------------
+    # C012 — Tagging / Segmentation Logic Clear
+    # -------------------------------------------------------------------------
     tags = [t.lower() for t in ctx.tags if t]
     has_best = any(any(w in t for w in BESTSELLER_WORDS) for t in tags)
     has_category = any(t not in {'', 'none'} and not any(w in t for w in BESTSELLER_WORDS | SEGMENTATION_WORDS) for t in tags)
     has_segment = any(any(w in t for w in SEGMENTATION_WORDS) for t in tags)
     if has_best and has_category:
-        r['C012'] = ControlResult('OK', '', WHY['C012'], SOURCES['C012'])
+        r['C012'] = ControlResult('OK', 'Campaign tags show clear product segmentation with bestseller and category labels identified.', WHY['C012'], SOURCES['C012'])
     elif has_category or has_segment:
-        r['C012'] = ControlResult('PARTIAL', 'Product tagging is present, but bestseller or category segmentation is only partially identifiable.', WHY['C012'], SOURCES['C012'])
+        r['C012'] = ControlResult('PARTIAL', 'Some product tagging is present, but the segmentation is incomplete. Bestseller or category labels are not fully identifiable.', WHY['C012'], SOURCES['C012'])
     else:
-        r['C012'] = ControlResult('FLAG', 'No clear product tagging or segmentation logic was identified in the campaign tag fields.', WHY['C012'], SOURCES['C012'])
+        r['C012'] = ControlResult('FLAG', 'No clear product tagging or segmentation was found in the campaign tag fields. The team cannot tell how the portfolio is being prioritized.', WHY['C012'], SOURCES['C012'])
 
-    r['C013'] = ControlResult('OK', '', WHY['C013'], SOURCES['C013'])
-    r['C014'] = ControlResult('OK', '', WHY['C014'], SOURCES['C014'])
+    # -------------------------------------------------------------------------
+    # C013 / C014 — Manual on-call controls
+    # -------------------------------------------------------------------------
+    r['C013'] = ControlResult('OK', 'To be reviewed during the QR presentation call.', WHY['C013'], SOURCES['C013'])
+    r['C014'] = ControlResult('OK', 'To be reviewed during the QR presentation call.', WHY['C014'], SOURCES['C014'])
 
     return r
 
