@@ -42,20 +42,20 @@ CONTROL_NAMES = {
 }
 
 WHY = {
-    'C001': 'Clear objective framing is the anchor for judging account mastery and whether the account is being managed against the right business outcome.',
-    'C002': 'The primary objective should include KPI logic, context, and constraints so the intended strategy is analyzable.',
-    'C003': 'Documented challenges show the CSM understands the real blockers affecting account performance.',
-    'C004': 'Seasonality should be documented only when it exists, and omitted when it does not.',
-    'C005': 'When the YES/NO toggle is used, the related context should also be visible in the narrative fields for the reviewer.',
-    'C006': 'A client journey map is a basic signal that the account setup and customer stage are being tracked.',
-    'C007': 'Project-level KPI targets should not be looser than the declared account constraints.',
-    'C008': 'Understanding concentration is important because highly concentrated accounts need different prioritization and risk management.',
-    'C009': 'Recent client contact cadence is evidence that the account narrative is current and client-informed.',
-    'C010': 'Framework exceptions should be visible in CS notes so the CoE can tell whether they are intentional and justified.',
-    'C011': 'When a spend target is documented, actual daily spend should be reasonably aligned with it. Significant deviation signals the account is not being managed to its stated budget.',
-    'C012': 'Product tagging and segmentation reveal whether the account structure supports the intended strategy.',
-    'C013': 'Manual review required during QR presentation call — interaction quality cannot be assessed from system data.',
-    'C014': 'Manual review required during QR presentation call — explanation quality cannot be assessed from system data.',
+    'C001': 'A clear objective is the starting point for every strategy decision. Without it, the team cannot prioritize correctly or explain trade-offs to the client.',
+    'C002': 'The objective context needs KPI targets, efficiency limits, and a timeframe so the CoE can review the account with the right focus. All five elements are required.',
+    'C003': 'Knowing the active challenges helps the team avoid repeating mistakes and explains why certain metrics are moving. Generic descriptions do not help the reviewer.',
+    'C004': 'Seasonal accounts need a documented plan. If seasonality is not captured, the team may invest too much or too little at the wrong time.',
+    'C005': 'When the account has operational constraints, they must be written down so any reviewer understands the limits before making changes.',
+    'C006': 'The Client Journey Map shows where the client is in their lifecycle. Without it, strategy decisions may not match the client stage.',
+    'C007': 'The efficiency targets set in the project must respect the limits agreed with the client. A looser project target means the account may be run outside the agreed boundaries.',
+    'C008': 'A concentrated account needs different attention than a diversified one. The documented story must match what the data actually shows.',
+    'C009': 'Regular client contact keeps the account story current. A long gap between calls means the documented goals may no longer reflect what the client actually wants.',
+    'C010': 'Framework exceptions must be documented so the CoE can tell if they are intentional. Undocumented customizations look like errors during a review.',
+    'C011': 'When a spend target is set, actual daily spend should stay close to it. A large gap means the account is either under-delivering or at risk of overspending.',
+    'C012': 'Clear product tagging shows the team understands the portfolio and is managing products at the right priority level.',
+    'C013': 'Manual review required during the QR call — interaction quality cannot be checked from system data.',
+    'C014': 'Manual review required during the QR call — explanation quality cannot be checked from system data.',
 }
 
 SOURCES = {
